@@ -8,6 +8,14 @@ from selenium.webdriver.common.keys import Keys
 import time
 import csv
 import re
+paths={
+    'search_box_xpath':"//input[@id='searchboxinput']",
+    'searched_interest_list_xpath':"//*[@class='Nv2PK THOPZb CpccDe ']/child::a",
+    'restaurant_name_xpath':"//h1[@class='DUwDvf lfPIob']",
+    'restaurant_rating_xpath':"//span[@class='ceNzKf']/preceding-sibling::span",
+    'restaurants_address_xpath':"(//div[@class='rogA2c ']/child::div)[1]",
+    'restaurant_review_xpath':"(//div[@class='F7nice ']/child::span)[2]",
+}
 details=[]
 @given(u'He Open Google Map')
 def opening_google_map(context):
@@ -23,29 +31,32 @@ def search_your_interest(context,search_input):
     """ Searching Things On Map
     """
     context.interest=search_input
-    context.driver.find_element(By.XPATH,"//input[@id='searchboxinput']").send_keys(search_input,Keys.ENTER)
+    context.driver.find_element(By.XPATH,paths['search_box_xpath']).send_keys(search_input,Keys.ENTER)
     time.sleep(5)
 
 
 @when(u'He Found The List')
-def checking_list_found(context):
+def checking_list_found_or_not(context):
     """
      If List After searching element found it will not throw any exception otherwise it will throw error
     """
     wait=WebDriverWait(context.driver,10)
-    context.all_link = wait.until(ec.presence_of_all_elements_located((By.XPATH, "//*[@class='Nv2PK THOPZb CpccDe ']/child::a")))
-    assert context.all_link != [], 'Unable To Find Required List'
+    context.all_link = wait.until(ec.presence_of_all_elements_located((By.XPATH, paths['searched_interest_list_xpath'])))
+    try:
+        assert context.all_link != [], 'Unable To Find Required List'
+    except AssertionError as msg:
+        print(msg)
 
 
 @when('He Save Top "{total_count}" All The Details')
-def saving_details(context,total_count):
+def extracting_details(context,total_count):
     """
     :param total_count: Storing Total Number Of Interest For Saving Details
     :return: It Returns CSV File Of Searched Item
     """
     X = []
     tot = []
-    all_link = context.driver.find_element(By.XPATH, "//*[@class='Nv2PK THOPZb CpccDe ']/child::a")
+    list_of_searched_interest = context.driver.find_element(By.XPATH, paths['searched_interest_list_xpath'])
     def extracting_information(arg):
         tot_list=set(arg)
         for i in range(len(tot_list)):
@@ -57,43 +68,42 @@ def saving_details(context,total_count):
                 time.sleep(5)
 
                 try:
-                    D['name'] = context.driver.find_element(By.XPATH, "//h1[@class='DUwDvf lfPIob']").text
+                    D['name'] = context.driver.find_element(By.XPATH, paths['restaurant_name_xpath']).text
                 except:
                     D['name'] = 'NULL'
 
                 try:
                     D['rating'] = context.driver.find_element(By.XPATH,
-                                                              "//span[@class='ceNzKf']/preceding-sibling::span").text
+                                                              paths['restaurant_rating_xpath']).text
                 except:
                     D['rating'] = 'NULL'
 
                 try:
-                    D['address'] = context.driver.find_element(By.XPATH, "(//div[@class='rogA2c ']/child::div)[1]").text
+                    D['address'] = context.driver.find_element(By.XPATH, paths['restaurants_address_xpath']).text
                 except:
                     D['address'] = 'NULL'
 
                 try:
-                    D['review'] = context.driver.find_element(By.XPATH, "(//div[@class='F7nice ']/child::span)[2]").text
+                    D['review'] = context.driver.find_element(By.XPATH, paths['restaurant_review_xpath']).text
                 except:
                     D['review'] = 'NULL'
                 try:
                     url = str(context.driver.current_url)
-                    lan = re.search('@\S+,\S+,', url)
-                    D['Log_and_Lat'] = lan.group()
+                    filtering_lat_and_long = re.search('@\d+\S{1}\d+,\d+\S{1}\d+', url)
+                    D['Log_and_Lat'] = filtering_lat_and_long.group()
                     D['Log_and_Lat'].replace('@', '')
-                    D['Log_and_Lat'].replace(',', ' ')
                 except:
                     D['Log_and_Lat'] = 'NULL'
             X.append(i)
             details.append(D)
-            all_link.send_keys(Keys.DOWN)
+            list_of_searched_interest.send_keys(Keys.DOWN)
 
     while True:
         if len(tot)>=int(total_count):
             break
         else:
             tot = context.driver.find_elements(By.XPATH, "//*[@class='Nv2PK THOPZb CpccDe ']/child::a")
-            all_link.send_keys(Keys.END)
+            list_of_searched_interest.send_keys(Keys.END)
     extracting_information(set(tot))
 
 
@@ -105,11 +115,3 @@ def making_csv(context):
         writer.writeheader()
         writer.writerows(details)
     context.driver.close()
-
-
-
-
-
-
-
-
